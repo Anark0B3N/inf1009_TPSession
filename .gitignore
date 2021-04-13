@@ -1,0 +1,11 @@
+*/.vs
+*/.suo
+*.vs
+*.suo
+*.user
+obj
+bin
+Travail1-PIF1006/obj
+Travail1-PIF1006/bin
+Travail1-PIF1006/packages
+Travail1-PIF1006/packages.config
