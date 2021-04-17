@@ -7,7 +7,8 @@ namespace INF1009_TPSESSION
 {
     class Transport
     {
-        private List<byte[]> tableControleTransport;
+        //Table des connexion identifier par le byte identificateur du processus
+        private Dictionary<byte, ConnexionTransport> tableControleTransport;
         public Transport()
         {
             //Création des fichiers s'ils n'existent pas
@@ -36,7 +37,7 @@ namespace INF1009_TPSESSION
                 }
             
             }
-            tableControleTransport = new List<byte[]>();
+            tableControleTransport = new Dictionary<byte, ConnexionTransport>();
         }
 
         //À renomer
@@ -62,7 +63,8 @@ namespace INF1009_TPSESSION
 
         private void processLigne(string ligne)
         {
-            byte[] currentProcess = new byte[4];
+            ConnexionTransport currentConn;
+
             byte[] currentData;
             string[] ligneSepare = new string[2];
             bool nouvelleConnexion = true;
@@ -70,20 +72,18 @@ namespace INF1009_TPSESSION
             ligneSepare = ligne.Split(',');
 
             //Recherche d'une connexion existante venant de cette application
-            foreach (byte[] b in tableControleTransport)
-            {
-                if (b[0] == Convert.ToByte(ligneSepare[0]))
-                {
-                    currentProcess = b;
-                    nouvelleConnexion = false;
-                    break;
-                }                  
-            }
+            byte processId = Convert.ToByte(ligneSepare[0]);
+
+            if (tableControleTransport.ContainsKey(processId)) {
+                currentConn = tableControleTransport[processId];
+                nouvelleConnexion = false;
+            }                  
 
             //Ajout de la connexion dans la table de cotrôle si elle n'existe pas déja
             if(nouvelleConnexion)
             {
-                tableControleTransport.Add(new byte[4] { Convert.ToByte(ligneSepare[0]), Constantes.EN_ATTENTE, Convert.ToByte(rnd.Next(255)), Convert.ToByte(rnd.Next(1, 255)) } );
+                currentConn = new ConnexionTransport(Constantes.EN_ATTENTE, Convert.ToByte(rnd.Next(255)), Convert.ToByte(rnd.Next(1, 255)));
+                tableControleTransport.Add(processId, currentConn);
             }
             currentData = new byte[ligneSepare[1].Length];
 
