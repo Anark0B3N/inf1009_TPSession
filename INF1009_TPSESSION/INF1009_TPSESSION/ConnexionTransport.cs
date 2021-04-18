@@ -13,23 +13,20 @@ namespace INF1009_TPSESSION {
         private byte[] data;
         private Queue<string> commands;
 
-        public ConnexionTransport(byte etat, byte src, byte dest) {
-            data = new byte[3];
+        public ConnexionTransport(byte src, byte dest) {
+            data = new byte[2];
             commands = new Queue<string>();
 
-            data[0] = etat;
-            data[1] = src;
-            data[0] = dest;
+            data[0] = src;
+            data[1] = dest;
+
         }
 
-        public byte getEtat() {
+        public byte getSrc() {
             return data[0];
         }
-        public byte getSrc() {
-            return data[1];
-        }
         public byte getDest() {
-            return data[2];
+            return data[1];
         }
 
         public void addCommand(string command) {

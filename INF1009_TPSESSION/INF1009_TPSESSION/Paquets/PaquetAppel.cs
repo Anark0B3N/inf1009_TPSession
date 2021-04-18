@@ -13,7 +13,7 @@ namespace INF1009_TPSESSION
         {
             paquet = new byte[4];
             paquet[0] = numeroConnexion;
-            paquet[1] = 0x0b;
+            paquet[1] = Constantes.N_CONNECT_REQ;
             paquet[2] = adresseSource;
             paquet[3] = adresseDestination;
         }

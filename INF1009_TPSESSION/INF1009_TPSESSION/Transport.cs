@@ -33,6 +33,7 @@ namespace INF1009_TPSESSION {
 
             //Demarre un thread de lecture et ecriture de reponse (ERs a ET)
             Thread reponsesThread = new Thread(lectureFichier);
+            reponsesThread.Start();
 
             foreach(Thread th in startedThreads) {
                 th.Join();
@@ -49,9 +50,10 @@ namespace INF1009_TPSESSION {
             *  de ne pas bloquer ET lors d'une attente de 
             *  confirmation d'une connexion */
             foreach (ConnexionTransport conn in tableControleTransport.Values) {
-                //Thread th = new Thread(Reseau.ExecutionThread(conn));
-                //th.Start();
-                //startedThreads.Add(th);
+                EntiteeReseau ER = new EntiteeReseau(conn);
+                Thread th = new Thread( new ThreadStart(() => ER.Execute()) );
+                th.Start();
+                startedThreads.Add(th);
             }
         }
 
@@ -159,8 +161,15 @@ namespace INF1009_TPSESSION {
                 currentConn = tableControleTransport[processId];
             }
             else {
+                int dest = 0, src = 0;
+                //Dest et Src doivent etre diffrent..
+                while(dest == src) {
+                    dest = rnd.Next(1, 255);
+                    src = rnd.Next(1, 255);
+                }
+
                 //Nouvelle connexion
-                currentConn = new ConnexionTransport(Constantes.EN_ATTENTE, Convert.ToByte(rnd.Next(255)), Convert.ToByte(rnd.Next(1, 255)));
+                currentConn = new ConnexionTransport(Convert.ToByte(src), Convert.ToByte(dest));
                 tableControleTransport.Add(processId, currentConn);
             }
 
