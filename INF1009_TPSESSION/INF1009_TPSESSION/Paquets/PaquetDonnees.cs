@@ -1,12 +1,13 @@
-﻿using System;
+﻿using INF1009_TPSESSION.Paquets;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace INF1009_TPSESSION
 {
-    class PaquetDonnees
+    class PaquetDonnees : Paquet
     {
-        private byte[] paquet;
+        
 
         public PaquetDonnees(byte numeroConnexion, byte typePaquet, byte[] donnees)
         {

@@ -13,12 +13,13 @@ namespace INF1009_TPSESSION {
         private byte[] data;
         private Queue<string> commands;
 
-        public ConnexionTransport(byte src, byte dest) {
-            data = new byte[2];
+        public ConnexionTransport(byte src, byte dest, byte numeroConnexion) {
+            data = new byte[3];
             commands = new Queue<string>();
 
             data[0] = src;
             data[1] = dest;
+            data[2] = numeroConnexion;
 
         }
 
@@ -28,7 +29,10 @@ namespace INF1009_TPSESSION {
         public byte getDest() {
             return data[1];
         }
-
+        public byte getNumeroConnexion()
+        {
+            return data[2];
+        }
         public void addCommand(string command) {
             commands.Enqueue(command);
         }

@@ -1,12 +1,13 @@
-﻿using System;
+﻿using INF1009_TPSESSION.Paquets;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace INF1009_TPSESSION
 {
-    class PaquetConnexionEtablie
+    class PaquetConnexionEtablie : Paquet
     {
-        private byte[] paquet;
+
 
         public PaquetConnexionEtablie(byte numeroConnexion, byte adresseSource, byte adresseDestination)
         {

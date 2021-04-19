@@ -11,6 +11,8 @@ namespace INF1009_TPSESSION {
     class Transport {
 
         public static Semaphore ERs_TO_ET_File;
+        /*public static Semaphore L_lec_sem;
+        public static Semaphore L_ecr_sem;*/
 
         //Liste des threads demarres
         private List<Thread> startedThreads;
@@ -20,6 +22,8 @@ namespace INF1009_TPSESSION {
         public Transport() {
             //inits
             ERs_TO_ET_File = new Semaphore(0, 255);
+            /*L_lec_sem = new Semaphore(0, 255);
+            L_ecr_sem = new Semaphore(0, 255);*/
             tableControleTransport = new Dictionary<byte, ConnexionTransport>();
             startedThreads = new List<Thread>();
 
@@ -83,6 +87,10 @@ namespace INF1009_TPSESSION {
                 }
 
             }
+            else
+            {
+                System.IO.File.WriteAllText(@"S_ecr.txt", string.Empty);
+            }
 
             //R_ecr: ER ecrit dans ce fichier les reponses de liaison pour que ET les recoient
             if (!File.Exists("R_ecr.txt")) {
@@ -106,6 +114,10 @@ namespace INF1009_TPSESSION {
                     Console.WriteLine("can't create L_lec", e.ToString());
                 }
             }
+            else
+            {                 
+                    System.IO.File.WriteAllText(@"L_lec.txt", string.Empty);
+            }
 
             //L_ecr: ER ecrit dans ce fichier ce qu'il envoie a la couche liaison de donnees
             if (!File.Exists("L_ecr.txt")) {
@@ -117,6 +129,10 @@ namespace INF1009_TPSESSION {
                     Console.WriteLine("Can't ceate L_ecr", e.ToString());
                 }
 
+            }
+            else
+            {
+                System.IO.File.WriteAllText(@"L_ecr.txt", string.Empty);
             }
 
             return allFileCreated;
@@ -169,7 +185,7 @@ namespace INF1009_TPSESSION {
                 }
 
                 //Nouvelle connexion
-                currentConn = new ConnexionTransport(Convert.ToByte(src), Convert.ToByte(dest));
+                currentConn = new ConnexionTransport(Convert.ToByte(src), Convert.ToByte(dest), processId);
                 tableControleTransport.Add(processId, currentConn);
             }
 
