@@ -177,4 +177,9 @@ namespace INF1009_TPSESSION {
             L_ecr_sem.Release();
         }
     }
+
+    //Segmentation plusieurs paquet
+    //retourner paquet et primitives a transport
+    //no connexion dans les log
+    //temporisateur
 }
