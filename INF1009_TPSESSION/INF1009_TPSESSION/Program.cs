@@ -8,7 +8,6 @@ namespace INF1009_TPSESSION
         {
             Console.WriteLine("Hello World!");
             Transport testTransport = new Transport();
-            testTransport.lectureFichier();
         }
     }
 }

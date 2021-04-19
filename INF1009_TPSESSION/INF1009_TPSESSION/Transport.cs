@@ -11,6 +11,7 @@ namespace INF1009_TPSESSION {
     class Transport {
 
         public static Semaphore ERs_TO_ET_File;
+        public static SemaphoreSlim allERsFinished;
         /*public static Semaphore L_lec_sem;
         public static Semaphore L_ecr_sem;*/
 
@@ -21,7 +22,8 @@ namespace INF1009_TPSESSION {
 
         public Transport() {
             //inits
-            ERs_TO_ET_File = new Semaphore(0, 255);
+            ERs_TO_ET_File = new Semaphore(1, 1);
+            allERsFinished = new SemaphoreSlim(1);
             /*L_lec_sem = new Semaphore(0, 255);
             L_ecr_sem = new Semaphore(0, 255);*/
             tableControleTransport = new Dictionary<byte, ConnexionTransport>();
@@ -36,15 +38,18 @@ namespace INF1009_TPSESSION {
             }
 
             //Demarre un thread de lecture et ecriture de reponse (ERs a ET)
-            Thread reponsesThread = new Thread(lectureFichier);
+            Thread reponsesThread = new Thread(lireReception);
             reponsesThread.Start();
 
             foreach(Thread th in startedThreads) {
                 th.Join();
             }
 
-            //Tous les ER ont finit, donc on arrete d'ecouter les reponses
-            reponsesThread.Abort();
+            //Semaphore utiliser pour notifier le thread de lecture de la fin de la simulation
+            allERsFinished.Wait();
+            allERsFinished.Release();
+
+            reponsesThread.Join();
         }
 
 
@@ -206,28 +211,36 @@ namespace INF1009_TPSESSION {
 
         //Ecoute par intermittence le fichier R_ecr, soit les reponses de ER, et les ecrient dans S_ecr
         private void lireReception() {
+            allERsFinished.Wait();
+
             int currentLine = 0;
-            if (File.Exists("R_ecr.txt") && File.Exists("S_ecr.txt")) {
-                try {
-                    while (true) {
-                        //Mettre un semaphore pour la concurrence du fichier
-                        ERs_TO_ET_File.WaitOne();
-                        string[] lines = File.ReadAllLines("R_ecr.txt");
-                        ERs_TO_ET_File.Release();
+            
 
-                        for (int i = currentLine; currentLine < lines.Length; currentLine++) {
-                            File.AppendAllText("S_ecr.txt", lines[currentLine] + "\n");
-                        }
+            bool run = true;
+            while (run) {
+                //Mettre un semaphore pour la concurrence du fichier
+                ERs_TO_ET_File.WaitOne();
+                string[] lines = File.ReadAllLines("R_ecr.txt");
+                ERs_TO_ET_File.Release();
 
-                        //Attendre 1.5 sec avant de re-verifier le fichier txt
-                        Thread.Sleep(1500);
+                if (File.Exists("R_ecr.txt") && File.Exists("S_ecr.txt")) { //Verifier s'ils existe bien... TODO: debugger ici si rien n'est ecit dans S_ecr
+                    for (int i = currentLine; currentLine < lines.Length; currentLine++) {
+                        File.AppendAllText("S_ecr.txt", lines[currentLine] + "\n");
                     }
                 }
-                catch (ThreadAbortException ex) {
+
+
+                //Si le semaphore a ete reserve 2 fois, arreter ce thread. La simulation est fini
+                if (allERsFinished.CurrentCount < 1) {
+                    run = false;
                     Console.WriteLine("ET a finit de lire et d'ecrire les retours");
                 }
 
+                //Attendre 1.5 sec avant de re-verifier le fichier txt
+                Thread.Sleep(1500);
             }
+            allERsFinished.Release();
+
         }
     }
 }
