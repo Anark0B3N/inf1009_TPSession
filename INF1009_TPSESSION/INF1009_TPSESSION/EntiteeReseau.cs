@@ -8,6 +8,7 @@ using System.Threading;
 namespace INF1009_TPSESSION {
     class EntiteeReseau {
         private ConnexionTransport connexionTransport;
+        private string trameComplete;
         public static Semaphore L_lec_sem;
         public static Semaphore L_ecr_sem;
 
@@ -31,6 +32,8 @@ namespace INF1009_TPSESSION {
         private void processTask(string task) {
             //string[] taskParams = task.Split(',');
             Paquet paquetRetour;
+            Paquet paquetTemporaire;
+
             switch (task) {
                 case "DebutDesDonnees":
 
@@ -52,10 +55,26 @@ namespace INF1009_TPSESSION {
                     //Data transfer
                 default:
                     if (task.Length <= 128)
-                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x22, Encoding.ASCII.GetBytes(task)));
+                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x10, Encoding.ASCII.GetBytes(task)));
                     else
                     {
-                        //TODO: 
+
+                        for(int i = 0; i <= task.Length / 128; i++)
+                        {
+                            
+
+                            if (i < task.Length / 128)
+                            {
+                                byte type = (byte)((i << 5) | 0x10 | ((i + 1) << 1));
+                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(128 * i, 128)));
+                            }
+                            else
+                            {
+                                byte type = (byte)((i << 5) | 0x10 | (i << 1));
+                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(128 * i, task.Length % 128 )));
+                            }
+                                paquetRetour = liaisonDonnees(paquetTemporaire);
+                        }
                     }
                     //faire des paquets
                     break;
@@ -91,12 +110,8 @@ namespace INF1009_TPSESSION {
 
                     
                 default:
-                    //Si il n'y a qu'une seule trame de data
-                    if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x10) == 0)
-                    {
-                        byte? retourData = receiveData(paquetRecu);
-                    }
-                       
+                    byte? retourData = receiveData(paquetRecu);
+                    
                     break;
             }
             return null;
@@ -139,18 +154,34 @@ namespace INF1009_TPSESSION {
                 //
                 // Check this, not sure why I need to cast it as byte
                 //
-                return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x09));
+                return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xF0) | 0x09));
             }
 
             //Acquitement Positif
             else
             {
-                writeLog("Paquet de données reçu de " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
-                //
-                //TODO ++++ remove zeros +++++
-                //
-                writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
-                return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x01));
+                //S'il n'y a qu'une seule trame
+                if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x10) == 0)
+                {
+                    writeLog(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION] + ": Paquet de données reçu 1 de 1. source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                    writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
+                    return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x01));
+                }
+                else
+                {
+                    //Premier paquet d'une suite
+                    if (((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x00) == 0)
+                        trameComplete = "";
+                    trameComplete += (Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
+                    writeLog(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION] + ": Paquet de données reçu "+ ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) +" de plusieurs. Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                    
+                    //Dernier paquet d'une suite
+                    if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) == (paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) << 4)
+                    {
+                        writeLog(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION] + ": Paquet de données reçu " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) + " de " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 1) +". Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                        writeData(trameComplete);
+                    }
+                }
             }
                 
             return 0;
@@ -161,7 +192,7 @@ namespace INF1009_TPSESSION {
         private void writeLog(string log)
         {
             L_lec_sem.WaitOne();
-            System.IO.StreamWriter writer = new StreamWriter(@"L_lec.txt", true);           
+            System.IO.StreamWriter writer = new StreamWriter("L_lec.txt", true);           
             writer.WriteLine(log);              
             writer.Close();           
             L_lec_sem.Release();
@@ -171,7 +202,7 @@ namespace INF1009_TPSESSION {
         {
             
             L_ecr_sem.WaitOne();
-            System.IO.StreamWriter writer = new StreamWriter(@"L_ecr.txt", true);           
+            System.IO.StreamWriter writer = new StreamWriter("L_ecr.txt", true);           
             writer.WriteLine(log);
             writer.Close();           
             L_ecr_sem.Release();
