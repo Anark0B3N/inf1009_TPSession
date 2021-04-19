@@ -59,19 +59,17 @@ namespace INF1009_TPSESSION {
                     else
                     {
 
-                        for(int i = 0; i <= task.Length / 128; i++)
+                        for(int i = 0; i < task.Length; i += 128)
                         {
-                            
-
-                            if (i < task.Length / 128)
+                            if ( (task.Length - i) >= 128 )
                             {
                                 byte type = (byte)((i << 5) | 0x10 | ((i + 1) << 1));
-                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(128 * i, 128)));
+                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(i, 128)));
                             }
                             else
                             {
                                 byte type = (byte)((i << 5) | 0x10 | (i << 1));
-                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(128 * i, task.Length % 128 )));
+                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(i, task.Length % 128 )));
                             }
                                 paquetRetour = liaisonDonnees(paquetTemporaire);
                         }
@@ -84,10 +82,14 @@ namespace INF1009_TPSESSION {
         }
         private Paquet liaisonDonnees(Paquet paquetRecu)
         {
+            int triesCount;
+
             switch (paquetRecu.getPaquet()[Constantes.TYPE_PAQUET])
             {
                 case Constantes.N_CONNECT_REQ:
-                    byte? connexion =  establishConnexion(paquetRecu);
+                    triesCount = 0;
+                    byte? connexion = tryWithTemp(establishConnexion, paquetRecu, ref triesCount);
+
                     //Si le distant à refusé la connexion
                     if (connexion == Constantes.N_DISCONNECT_IND)
                         return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
@@ -108,13 +110,37 @@ namespace INF1009_TPSESSION {
                     return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
                     break;
 
-                    
                 default:
-                    byte? retourData = receiveData(paquetRecu);
-                    
+                    triesCount = 0;
+                    byte? retourData = tryWithTemp(receiveData, paquetRecu, ref triesCount);
                     break;
             }
             return null;
+        }
+
+
+        /*Permet d'essayer une methode du type 'byte? XYZ(Paquet)' avec un temporisateur avec 
+         * un nombre d'essaies max de 2. Retourne null si le nombre d'essai max est depasse*/
+        private byte? tryWithTemp(Func<Paquet, byte?> funcToTry, Paquet paquetRecu, ref int triesCount) {
+            long time0 = DateTime.Now.Ticks; //ticks / 10 000 000 = seconds
+
+            //Appel de la function a tester
+            byte? result = funcToTry(paquetRecu);
+
+            long temporisateurMax = 15000000;//1.5 secs
+
+            //Si le temporisateur est ecoule
+            if ((DateTime.Now.Ticks - time0) > temporisateurMax) {
+                triesCount++;
+                if (triesCount > 2)
+                    return null;
+
+                //Re-essayer
+                return tryWithTemp(funcToTry, paquetRecu, ref triesCount);
+            }
+            else {
+                return result;
+            }
         }
 
         private byte? establishConnexion(Paquet paquetRecu)
@@ -124,6 +150,8 @@ namespace INF1009_TPSESSION {
             if ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 19 == 0)
             {
                 writeLog("...");
+
+                Thread.Sleep(1500); //simulation de non-reponse
                 return null;
             }
             //Connexion refusée
@@ -144,12 +172,14 @@ namespace INF1009_TPSESSION {
         {
             Random rnd = new Random();
             //Ne retourne rien si l'adresse source est un multiple de 15
-            if ((paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 15) == 0)
+            if ((paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 15) == 0) {
                 writeLog("...");
 
+                Thread.Sleep(1500); //simulation de non-reponse
+                return null;
+            }
             //Acquitement négatif
-            else if ((int)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] >> 1) & 0x07) == rnd.Next(0, 7))
-            {
+            else if ((int)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] >> 1) & 0x07) == rnd.Next(0, 7)) {
                 writeLog("paquet de données invalide reçu de " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
                 //
                 // Check this, not sure why I need to cast it as byte
@@ -158,33 +188,32 @@ namespace INF1009_TPSESSION {
             }
 
             //Acquitement Positif
-            else
-            {
+            else {
                 //S'il n'y a qu'une seule trame
-                if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x10) == 0)
-                {
-                    writeLog(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION] + ": Paquet de données reçu 1 de 1. source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x10) == 0) {
+                    writeLog("Paquet de données reçu 1 de 1. source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
                     writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
                     return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x01));
                 }
-                else
-                {
+                else {
                     //Premier paquet d'une suite
-                    if (((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x00) == 0)
+                    if (((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x00) == 0) {
                         trameComplete = "";
-                    trameComplete += (Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
-                    writeLog(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION] + ": Paquet de données reçu "+ ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) +" de plusieurs. Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
-                    
+                        trameComplete += (Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
+                        writeLog("Paquet de données reçu " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) + " de plusieurs. Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                    }
+
                     //Dernier paquet d'une suite
-                    if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) == (paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) << 4)
-                    {
-                        writeLog(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION] + ": Paquet de données reçu " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) + " de " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 1) +". Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                    if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) == (paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) << 4) {
+                        writeLog("Paquet de données reçu " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) + " de " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 1) + ". Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
                         writeData(trameComplete);
                     }
                 }
             }
-                
+
             return 0;
+
+                
         }
 
        
@@ -193,7 +222,7 @@ namespace INF1009_TPSESSION {
         {
             L_lec_sem.WaitOne();
             System.IO.StreamWriter writer = new StreamWriter("L_lec.txt", true);           
-            writer.WriteLine(log);              
+            writer.WriteLine(connexionTransport.getNumeroConnexion().ToString() + ": " + log);
             writer.Close();           
             L_lec_sem.Release();
         }
@@ -203,7 +232,7 @@ namespace INF1009_TPSESSION {
             
             L_ecr_sem.WaitOne();
             System.IO.StreamWriter writer = new StreamWriter("L_ecr.txt", true);           
-            writer.WriteLine(log);
+            writer.WriteLine(connexionTransport.getNumeroConnexion().ToString() + ": " + log);
             writer.Close();           
             L_ecr_sem.Release();
         }

@@ -235,9 +235,11 @@ namespace INF1009_TPSESSION {
                     run = false;
                     Console.WriteLine("ET a finit de lire et d'ecrire les retours");
                 }
-
                 //Attendre 1.5 sec avant de re-verifier le fichier txt
-                Thread.Sleep(1500);
+                else {
+                    Thread.Sleep(1500);
+                }
+
             }
             allERsFinished.Release();
 
