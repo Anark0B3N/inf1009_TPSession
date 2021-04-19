@@ -9,14 +9,13 @@ namespace INF1009_TPSESSION
     {
         
 
-        public PaquetDemandeLiberation(byte numeroConnexion, byte adresseSource, byte adresseDestination, byte raison)
+        public PaquetDemandeLiberation(byte numeroConnexion, byte adresseSource, byte adresseDestination)
         {
             paquet = new byte[5];
             paquet[0] = numeroConnexion;
             paquet[1] = Constantes.N_DISCONNECT_REQ;
             paquet[2] = adresseSource;
-            paquet[3] = adresseDestination;
-            paquet[4] = raison;
+            paquet[3] = adresseDestination;     
         }
        
 

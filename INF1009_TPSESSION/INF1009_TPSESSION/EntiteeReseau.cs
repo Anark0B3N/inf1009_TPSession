@@ -25,16 +25,30 @@ namespace INF1009_TPSESSION {
             }
         }
 
+        //
+        //TODO return paquet to ET
+        //
         private void processTask(string task) {
             //string[] taskParams = task.Split(',');
             Paquet paquetRetour;
             switch (task) {
                 case "DebutDesDonnees":
-                    paquetRetour = liaisonDonnees(new PaquetAppel(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest()));          
-                    break;
+
+                    //Si l'Adresse source est un multiple de 27, la couche réseau refuse la connexion
+                    if (connexionTransport.getSrc() % 27 == 0)
+                    {
+                        paquetRetour = new PaquetIndicationLiberation(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest(), 0x02);
+                    }
+                    else
+                    {
+                        paquetRetour = liaisonDonnees(new PaquetAppel(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest()));
+                    }
+                        break;
+                    //Demande de connexion
                 case "FinDesDonnees":
-                    //todo: deconnexion
+                    paquetRetour = liaisonDonnees(new PaquetDemandeLiberation(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest()));
                     break;
+
                     //Data transfer
                 default:
                     if (task.Length <= 128)
@@ -62,6 +76,7 @@ namespace INF1009_TPSESSION {
                     else if (connexion == Constantes.N_CONNECT_IND)
                         return new PaquetConnexionEtablie(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION]);
                     //Si le distant ne répond pas
+                    //TODO ++++ Devrait être un temporisateur ++++++ 
                     else if(connexion == null)
                     {
                         return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
@@ -70,14 +85,16 @@ namespace INF1009_TPSESSION {
 
                     //Pour une demande de déconnexion 
                 case Constantes.N_DISCONNECT_REQ:
+                    writeLog("Demande de déconnexion Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                    return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
                     break;
 
-                    //Data pack with less than 120 Bytes of data
+                    
                 default:
                     //Si il n'y a qu'une seule trame de data
                     if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x10) == 0)
                     {
-                        //byte? 
+                        byte? retourData = receiveData(paquetRecu);
                     }
                        
                     break;
@@ -87,15 +104,15 @@ namespace INF1009_TPSESSION {
 
         private byte? establishConnexion(Paquet paquetRecu)
         {
-            writeData("tentative de connexion Source: " + ((int)paquetRecu.getPaquet()[2]).ToString() + ", Destination: " + ((int)paquetRecu.getPaquet()[3]).ToString() + " " + DateTime.Now);
+            writeData("tentative de connexion Source: " + ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE]).ToString() + ", Destination: " + ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION]).ToString() + " " + DateTime.Now);
             //Pas de réponse
-            if ((int)paquetRecu.getPaquet()[2] % 19 == 0)
+            if ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 19 == 0)
             {
                 writeLog("...");
                 return null;
             }
             //Connexion refusée
-            else if ((int)paquetRecu.getPaquet()[2] % 13 == 0)
+            else if ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 13 == 0)
             {
                 writeLog("Connexion refusée " + DateTime.Now);
                 return Constantes.N_DISCONNECT_IND;
@@ -107,6 +124,39 @@ namespace INF1009_TPSESSION {
                 return Constantes.N_CONNECT_IND;
             }
         }
+
+        private byte? receiveData(Paquet paquetRecu)
+        {
+            Random rnd = new Random();
+            //Ne retourne rien si l'adresse source est un multiple de 15
+            if ((paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 15) == 0)
+                writeLog("...");
+
+            //Acquitement négatif
+            else if ((int)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] >> 1) & 0x07) == rnd.Next(0, 7))
+            {
+                writeLog("paquet de données invalide reçu de " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                //
+                // Check this, not sure why I need to cast it as byte
+                //
+                return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x09));
+            }
+
+            //Acquitement Positif
+            else
+            {
+                writeLog("Paquet de données reçu de " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                //
+                //TODO ++++ remove zeros +++++
+                //
+                writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
+                return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x01));
+            }
+                
+            return 0;
+        }
+
+       
 
         private void writeLog(string log)
         {
