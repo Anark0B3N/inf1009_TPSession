@@ -242,32 +242,7 @@ namespace INF1009_TPSESSION {
                 trameComplete += (Encoding.ASCII.GetString(paquetRecu.getPaquet(), 2, 128));
                 writeLog("Paquet de données reçu #" + (paquetRecu.getType() >> 5) + ". Prochain: #" + ((paquetRecu.getType() & 0x0E) >> 1) + ". source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
                 return (byte?)((paquetRecu.getType() & (0x0E << 4)) | 0x01);
-
-                //Old code..
-                /*                //S'il n'y a qu'une seule trame
-                if ((paquetRecu.getType() & 0x10) == 0) {
-                    writeLog("Paquet de données reçu 1 de 1. source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
-                    writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
-                    return ((byte?)((paquetRecu.getType() & 0xE0) | 0x01));
-                }
-                else {
-                    //Premier paquet d'une suite
-                    if (((paquetRecu.getType() & 0xE0) | 0x00) == 0) {
-                        trameComplete = "";
-                        trameComplete += (Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
-                        writeLog("Paquet de données reçu " + ((paquetRecu.getType() & 0x0E) >> 5) + " de plusieurs. Source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
-                    }
-
-                    //Dernier paquet d'une suite
-                    if ((paquetRecu.getType() & 0xE0) == (paquetRecu.getType() & 0x0E) << 4) {
-                        writeLog("Paquet de données reçu " + ((paquetRecu.getType() & 0x0E) >> 5) + " de " + ((paquetRecu.getType() & 0x0E) >> 1) + ". Source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
-                        writeData(trameComplete);
-                    }
-                }*/
             }
-
-            return 0;
-
                 
         }
 
@@ -288,10 +263,5 @@ namespace INF1009_TPSESSION {
             L_ecr_sem.Release();
         }
     }
-
-    //TODO
-    //retourner paquet et primitives a transport
-    //lors d'une connexion refusee, arreter de lire!
-    //gestion d'un envoie de donnees sans demande de connexion
 
 }

@@ -12,8 +12,6 @@ namespace INF1009_TPSESSION {
 
         public static Semaphore ERs_TO_ET_File;
         public static SemaphoreSlim allERsFinished;
-        /*public static Semaphore L_lec_sem;
-        public static Semaphore L_ecr_sem;*/
 
         //Liste des threads demarres
         private List<Thread> startedThreads;
@@ -24,8 +22,6 @@ namespace INF1009_TPSESSION {
             //inits
             ERs_TO_ET_File = new Semaphore(1, 1);
             allERsFinished = new SemaphoreSlim(2);
-            /*L_lec_sem = new Semaphore(0, 255);
-            L_ecr_sem = new Semaphore(0, 255);*/
             tableControleTransport = new Dictionary<byte, ConnexionTransport>();
             startedThreads = new List<Thread>();
 
