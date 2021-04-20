@@ -8,6 +8,7 @@ namespace INF1009_TPSESSION
     {
         public const byte EN_ATTENTE = 0x00;
         public const byte CONNECTE = 0x01;
+        public const byte DECONNECTE = 0x02;
 
          
         public const byte N_CONNECT_REQ = 0x0B;

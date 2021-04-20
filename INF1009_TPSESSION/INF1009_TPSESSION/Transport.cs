@@ -177,36 +177,38 @@ namespace INF1009_TPSESSION {
             //Recherche d'une connexion existante venant de cette application
             byte processId = Convert.ToByte(ligneSepare[0]);
 
+            //Connecte
             if (tableControleTransport.ContainsKey(processId)) {
                 //deja connecte
                 currentConn = tableControleTransport[processId];
+
+                //Ajout de la task dans la file du processus
+                currentConn.addCommand(ligneSepare[1]);
+                Console.WriteLine("Lecture de S_lec: " + ligne);
             }
-            else {
+            //Non connecte
+            else if (ligneSepare[1] == "DebutDesDonnees") {
                 int dest = 0, src = 0;
                 //Dest et Src doivent etre diffrent..
-                while(dest == src) {
+                while (dest == src) {
                     dest = rnd.Next(1, 255);
                     src = rnd.Next(1, 255);
                 }
-
                 //Nouvelle connexion
                 currentConn = new ConnexionTransport(Convert.ToByte(src), Convert.ToByte(dest), processId);
                 tableControleTransport.Add(processId, currentConn);
+
+                //Ajout de la task dans la file du processus
+                currentConn.addCommand(ligneSepare[1]);
+                Console.WriteLine("Lecture de S_lec: " + ligne);
+            }
+            //Commandes non conforme (envoie de donnees sans demande de connexion)
+            else {
+                Console.WriteLine("\'" + ligneSepare[1] + "\' Non Conforme! Demande du processus #" + ligneSepare[0] + " Ignorée.");
             }
 
-            //Ajout de la task dans la file du processus
-            currentConn.addCommand(ligneSepare[1]);
 
 
-            /*currentData = new byte[ligneSepare[1].Length];
-
-            //Récupération de la donnée à transmettre sous forme de table de bytes
-            for (int i = 0; i < ligneSepare[1].Length; i++)
-            {
-                currentData[i] = Convert.ToByte(ligneSepare[1][i]);
-            }*/
-
-            Console.WriteLine("Lecture de S_lec: " + ligne);
         }
 
         //Ecoute par intermittence le fichier R_ecr, soit les reponses de ER, et les ecrient dans S_ecr
