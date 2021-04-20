@@ -17,6 +17,15 @@ namespace INF1009_TPSESSION
         }
 
         public byte[] Paquet { get => paquet; set => paquet = value; }
-        
+
+        //Getters
+        public byte getPR() {
+            return paquet[1];
+        }
+
+        //Setters
+        public void setPR(byte pr) {
+            paquet[1] = pr;
+        }
     }
 }

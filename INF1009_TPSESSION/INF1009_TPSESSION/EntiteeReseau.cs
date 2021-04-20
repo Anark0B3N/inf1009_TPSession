@@ -84,7 +84,7 @@ namespace INF1009_TPSESSION {
         {
             int triesCount;
 
-            switch (paquetRecu.getPaquet()[Constantes.TYPE_PAQUET])
+            switch (paquetRecu.getType())
             {
                 case Constantes.N_CONNECT_REQ:
                     triesCount = 0;
@@ -92,22 +92,23 @@ namespace INF1009_TPSESSION {
 
                     //Si le distant à refusé la connexion
                     if (connexion == Constantes.N_DISCONNECT_IND)
-                        return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
+                        return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
+
                     //Si le distant a accepté la connexion 
                     else if (connexion == Constantes.N_CONNECT_IND)
-                        return new PaquetConnexionEtablie(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION]);
+                        return new PaquetConnexionEtablie(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest());
+
                     //Si le distant ne répond pas
-                    //TODO ++++ Devrait être un temporisateur ++++++ 
                     else if(connexion == null)
                     {
-                        return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
+                        return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
                     }                    
                     break;
 
                     //Pour une demande de déconnexion 
                 case Constantes.N_DISCONNECT_REQ:
-                    writeLog("Demande de déconnexion Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
-                    return new PaquetIndicationLiberation(paquetRecu.getPaquet()[Constantes.NUMERO_CONNEXION], paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE], paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION], 0x01);
+                    writeLog("Demande de déconnexion Source: " + paquetRecu.getSrc() + " " + DateTime.Now);
+                    return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
                     break;
 
                 default:
@@ -145,9 +146,9 @@ namespace INF1009_TPSESSION {
 
         private byte? establishConnexion(Paquet paquetRecu)
         {
-            writeData("tentative de connexion Source: " + ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE]).ToString() + ", Destination: " + ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_DESTINATION]).ToString() + " " + DateTime.Now);
+            writeData("tentative de connexion Source: " + ((int)paquetRecu.getSrc()).ToString() + ", Destination: " + ((int)paquetRecu.getDest()).ToString() + " " + DateTime.Now);
             //Pas de réponse
-            if ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 19 == 0)
+            if ((int)paquetRecu.getSrc() % 19 == 0)
             {
                 writeLog("...");
 
@@ -155,7 +156,7 @@ namespace INF1009_TPSESSION {
                 return null;
             }
             //Connexion refusée
-            else if ((int)paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 13 == 0)
+            else if ((int)paquetRecu.getSrc() % 13 == 0)
             {
                 writeLog("Connexion refusée " + DateTime.Now);
                 return Constantes.N_DISCONNECT_IND;
@@ -172,40 +173,40 @@ namespace INF1009_TPSESSION {
         {
             Random rnd = new Random();
             //Ne retourne rien si l'adresse source est un multiple de 15
-            if ((paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] % 15) == 0) {
+            if ((paquetRecu.getSrc() % 15) == 0) {
                 writeLog("...");
 
                 Thread.Sleep(1500); //simulation de non-reponse
                 return null;
             }
             //Acquitement négatif
-            else if ((int)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] >> 1) & 0x07) == rnd.Next(0, 7)) {
-                writeLog("paquet de données invalide reçu de " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+            else if ((int)((paquetRecu.getType() >> 1) & 0x07) == rnd.Next(0, 7)) {
+                writeLog("paquet de données invalide reçu de " + paquetRecu.getSrc() + " " + DateTime.Now);
                 //
                 // Check this, not sure why I need to cast it as byte
                 //
-                return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xF0) | 0x09));
+                return ((byte?)((paquetRecu.getType() & 0xF0) | 0x09));
             }
 
             //Acquitement Positif
             else {
                 //S'il n'y a qu'une seule trame
-                if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x10) == 0) {
-                    writeLog("Paquet de données reçu 1 de 1. source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                if ((paquetRecu.getType() & 0x10) == 0) {
+                    writeLog("Paquet de données reçu 1 de 1. source: " + paquetRecu.getSrc() + " " + DateTime.Now);
                     writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
-                    return ((byte?)((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x01));
+                    return ((byte?)((paquetRecu.getType() & 0xE0) | 0x01));
                 }
                 else {
                     //Premier paquet d'une suite
-                    if (((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) | 0x00) == 0) {
+                    if (((paquetRecu.getType() & 0xE0) | 0x00) == 0) {
                         trameComplete = "";
                         trameComplete += (Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
-                        writeLog("Paquet de données reçu " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) + " de plusieurs. Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                        writeLog("Paquet de données reçu " + ((paquetRecu.getType() & 0x0E) >> 5) + " de plusieurs. Source: " + paquetRecu.getSrc() + " " + DateTime.Now);
                     }
 
                     //Dernier paquet d'une suite
-                    if ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0xE0) == (paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) << 4) {
-                        writeLog("Paquet de données reçu " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 5) + " de " + ((paquetRecu.getPaquet()[Constantes.TYPE_PAQUET] & 0x0E) >> 1) + ". Source: " + paquetRecu.getPaquet()[Constantes.ADRESSE_SOURCE] + " " + DateTime.Now);
+                    if ((paquetRecu.getType() & 0xE0) == (paquetRecu.getType() & 0x0E) << 4) {
+                        writeLog("Paquet de données reçu " + ((paquetRecu.getType() & 0x0E) >> 5) + " de " + ((paquetRecu.getType() & 0x0E) >> 1) + ". Source: " + paquetRecu.getSrc() + " " + DateTime.Now);
                         writeData(trameComplete);
                     }
                 }

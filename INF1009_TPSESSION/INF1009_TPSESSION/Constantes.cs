@@ -25,5 +25,10 @@ namespace INF1009_TPSESSION
         public const byte DONNEES = 2;
         public const byte ADRESSE_DESTINATION = 3;
         public const byte RAISON = 4;
+
+        public const byte TYPE_PAQUET_M = 0x10;
+        public const byte TYPE_PAQUET_PR = 0xE0;
+        public const byte TYPE_PAQUET_PS= 0x0E;
+
     }
 }

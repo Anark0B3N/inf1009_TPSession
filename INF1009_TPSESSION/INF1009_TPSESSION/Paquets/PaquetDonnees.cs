@@ -30,5 +30,26 @@ namespace INF1009_TPSESSION
         }
 
         public byte[] Paquet { get => paquet; set => paquet = value; }
+
+        //Getters
+        public byte[] getData() {
+            byte[] toReturn = new byte[128];
+            Array.Copy(paquet, 2, toReturn, 0, 128);
+            return toReturn;
+        }
+
+        //Setters
+        public void setData(byte[] donnees) {
+            if (donnees.Length <= 128) {
+                Array.Copy(donnees, 0, paquet, 2, donnees.Length);
+
+                //Mettre des zéros sur la partie de la trame de data qui n'est pas utilisée
+                if (donnees.Length < 128) {
+                    for (int j = donnees.Length + 2; j < 130; j++) {
+                        Paquet[j - 1] = 0;
+                    }
+                }
+            }
+        }
     }
 }

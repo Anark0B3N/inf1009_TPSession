@@ -19,5 +19,6 @@ namespace INF1009_TPSESSION
         }
 
         public byte[] Paquet { get => paquet; set => paquet = value; }
+
     }
 }
