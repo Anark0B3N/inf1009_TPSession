@@ -30,9 +30,7 @@ namespace INF1009_TPSESSION {
         //TODO return paquet to ET
         //
         private void processTask(string task) {
-            //string[] taskParams = task.Split(',');
             Paquet paquetRetour;
-            Paquet paquetTemporaire;
 
             switch (task) {
                 case "DebutDesDonnees":
@@ -52,26 +50,34 @@ namespace INF1009_TPSESSION {
                     paquetRetour = liaisonDonnees(new PaquetDemandeLiberation(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest()));
                     break;
 
-                    //Data transfer
+                    //Data transfer             DEBUG THAT 
                 default:
-                    if (task.Length <= 128)
-                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x10, Encoding.ASCII.GetBytes(task)));
-                    else
-                    {
+                    if (task.Length <= 128) {
+                        byte[] taskBytes = Encoding.ASCII.GetBytes(task);
+                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x10, taskBytes));
+                    }
+                    else {
+                        int noPaquet = 0;
+                        for (int i = 0; i < task.Length; i += 128) {
+                            Paquet paquetTemporaire;
 
-                        for(int i = 0; i < task.Length; i += 128)
-                        {
-                            if ( (task.Length - i) >= 128 )
-                            {
-                                byte type = (byte)((i << 5) | 0x10 | ((i + 1) << 1));
-                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(i, 128)));
+                            if ((task.Length - i) >= 128) {
+                                byte type = (byte)((noPaquet << 5) | 0x10 | ((noPaquet + 1) << 1));
+                                byte[] taskBytes = Encoding.ASCII.GetBytes(task.Substring(i, 128));
+
+                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, taskBytes);
                             }
-                            else
-                            {
-                                byte type = (byte)((i << 5) | 0x10 | (i << 1));
-                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, Encoding.ASCII.GetBytes(task.Substring(i, task.Length % 128 )));
+                            //Dernier paquet de donnes
+                            else {
+                                byte type = (byte)((noPaquet << 5) | (noPaquet << 1));
+                                byte[] taskBytes = Encoding.ASCII.GetBytes(task.Substring(i, task.Length % 128));
+
+                                paquetTemporaire = new PaquetDonnees(connexionTransport.getNumeroConnexion(), type, taskBytes);
                             }
-                                paquetRetour = liaisonDonnees(paquetTemporaire);
+
+                            noPaquet++;
+
+                            paquetRetour = liaisonDonnees(paquetTemporaire);
                         }
                     }
                     //faire des paquets
@@ -98,7 +104,7 @@ namespace INF1009_TPSESSION {
                     else if (connexion == Constantes.N_CONNECT_IND)
                         return new PaquetConnexionEtablie(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest());
 
-                    //Si le distant ne répond pas
+                    //Si le distant ne répond pas (connexion = null quand trop long, voir tryWithTemp)
                     else if(connexion == null)
                     {
                         return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
@@ -111,6 +117,7 @@ namespace INF1009_TPSESSION {
                     return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
                     break;
 
+                    //Data
                 default:
                     triesCount = 0;
                     byte? retourData = tryWithTemp(receiveData, paquetRecu, ref triesCount);
@@ -150,7 +157,7 @@ namespace INF1009_TPSESSION {
             //Pas de réponse
             if ((int)paquetRecu.getSrc() % 19 == 0)
             {
-                writeLog("...");
+                writeLog(".....simulation de non reponse.....");
 
                 Thread.Sleep(1500); //simulation de non-reponse
                 return null;
@@ -174,23 +181,40 @@ namespace INF1009_TPSESSION {
             Random rnd = new Random();
             //Ne retourne rien si l'adresse source est un multiple de 15
             if ((paquetRecu.getSrc() % 15) == 0) {
-                writeLog("...");
+                writeLog(".....simulation de non reponse.....");
 
                 Thread.Sleep(1500); //simulation de non-reponse
                 return null;
             }
             //Acquitement négatif
-            else if ((int)((paquetRecu.getType() >> 1) & 0x07) == rnd.Next(0, 7)) {
+            /*else if ((int)((paquetRecu.getType() >> 1) & 0x07) == rnd.Next(0, 7)) {
                 writeLog("paquet de données invalide reçu de " + paquetRecu.getSrc() + " " + DateTime.Now);
                 //
                 // Check this, not sure why I need to cast it as byte
                 //
                 return ((byte?)((paquetRecu.getType() & 0xF0) | 0x09));
-            }
+            }*/
 
             //Acquitement Positif
             else {
-                //S'il n'y a qu'une seule trame
+                //S'il n'y a qu'une seule trame / dernier paquet
+                if ((paquetRecu.getType() & 0x10) == 0) {
+                    writeData(Encoding.ASCII.GetString(paquetRecu.getPaquet(), 2, 128));
+                    writeLog("Paquet de données reçu #" + (paquetRecu.getType() >> 5) + ". Prochain: #" + ((paquetRecu.getType() & 0x0E) >> 1) + ". source: " + paquetRecu.getSrc() + " " + DateTime.Now);
+                    
+                    return ((byte?)((paquetRecu.getType() & 0xE0) | 0x01));
+                }
+
+                //Sinon paquet d'une suite
+                trameComplete = "";
+                trameComplete += (Encoding.ASCII.GetString(paquetRecu.getPaquet(), 2, 128));
+
+                writeData(trameComplete);
+                writeLog("Paquet de données reçu #" + (paquetRecu.getType() >> 5) + ". Prochain: #" + ((paquetRecu.getType() & 0x0E) >> 1) + ". source: " + paquetRecu.getSrc() + " " + DateTime.Now);
+
+
+                //Old code..
+                /*                //S'il n'y a qu'une seule trame
                 if ((paquetRecu.getType() & 0x10) == 0) {
                     writeLog("Paquet de données reçu 1 de 1. source: " + paquetRecu.getSrc() + " " + DateTime.Now);
                     writeData(Encoding.UTF8.GetString(paquetRecu.getPaquet(), 2, 128));
@@ -209,7 +233,7 @@ namespace INF1009_TPSESSION {
                         writeLog("Paquet de données reçu " + ((paquetRecu.getType() & 0x0E) >> 5) + " de " + ((paquetRecu.getType() & 0x0E) >> 1) + ". Source: " + paquetRecu.getSrc() + " " + DateTime.Now);
                         writeData(trameComplete);
                     }
-                }
+                }*/
             }
 
             return 0;
@@ -222,25 +246,29 @@ namespace INF1009_TPSESSION {
         private void writeLog(string log)
         {
             L_lec_sem.WaitOne();
-            System.IO.StreamWriter writer = new StreamWriter("L_lec.txt", true);           
+            File.AppendAllText("L_lec.txt", connexionTransport.getNumeroConnexion().ToString() + ": " + log + "\n");
+
+            /*System.IO.StreamWriter writer = new StreamWriter("L_lec.txt", true);           
             writer.WriteLine(connexionTransport.getNumeroConnexion().ToString() + ": " + log);
-            writer.Close();           
-            L_lec_sem.Release();
+            writer.Close();        */
+                L_lec_sem.Release();
         }
 
         private void writeData(string log)
         {
             
             L_ecr_sem.WaitOne();
-            System.IO.StreamWriter writer = new StreamWriter("L_ecr.txt", true);           
+            File.AppendAllText("L_ecr.txt", connexionTransport.getNumeroConnexion().ToString() + ": " + log + "\n");
+
+            /*System.IO.StreamWriter writer = new StreamWriter("L_ecr.txt", true);           
             writer.WriteLine(connexionTransport.getNumeroConnexion().ToString() + ": " + log);
-            writer.Close();           
+            writer.Close();     */      
             L_ecr_sem.Release();
         }
     }
 
-    //Segmentation plusieurs paquet
+    //TODO
     //retourner paquet et primitives a transport
-    //no connexion dans les log
-    //temporisateur
+    //lors d'une connexion refusee, arreter de lire!
+
 }

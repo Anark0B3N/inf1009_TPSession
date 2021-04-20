@@ -24,7 +24,7 @@ namespace INF1009_TPSESSION
             {
                 for (int j = donnees.Length + 2; j < 130; j++)
                 {
-                    Paquet[j - 1] = 0;
+                    Paquet[j] = 0;
                 }
             }
         }
@@ -46,7 +46,7 @@ namespace INF1009_TPSESSION
                 //Mettre des zéros sur la partie de la trame de data qui n'est pas utilisée
                 if (donnees.Length < 128) {
                     for (int j = donnees.Length + 2; j < 130; j++) {
-                        Paquet[j - 1] = 0;
+                        Paquet[j] = 0;
                     }
                 }
             }
