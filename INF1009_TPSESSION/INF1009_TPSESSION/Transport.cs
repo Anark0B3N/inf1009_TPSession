@@ -23,7 +23,7 @@ namespace INF1009_TPSESSION {
         public Transport() {
             //inits
             ERs_TO_ET_File = new Semaphore(1, 1);
-            allERsFinished = new SemaphoreSlim(1);
+            allERsFinished = new SemaphoreSlim(2);
             /*L_lec_sem = new Semaphore(0, 255);
             L_ecr_sem = new Semaphore(0, 255);*/
             tableControleTransport = new Dictionary<byte, ConnexionTransport>();
@@ -47,6 +47,7 @@ namespace INF1009_TPSESSION {
 
             //Semaphore utiliser pour notifier le thread de lecture de la fin de la simulation
             allERsFinished.Wait();
+            Thread.Sleep(2000);
             allERsFinished.Release();
 
             reponsesThread.Join();
@@ -108,6 +109,11 @@ namespace INF1009_TPSESSION {
                 }
 
             }
+            else
+            {
+                System.IO.File.WriteAllText(@"R_ecr.txt", string.Empty);
+            }
+
 
             //L_lec: copies des messages que la couche de liaison de donnees envoie a ER
             if (!File.Exists("L_lec.txt")) {
@@ -227,7 +233,18 @@ namespace INF1009_TPSESSION {
 
                 if (File.Exists("R_ecr.txt") && File.Exists("S_ecr.txt")) { //Verifier s'ils existe bien... TODO: debugger ici si rien n'est ecit dans S_ecr
                     for (int i = currentLine; currentLine < lines.Length; currentLine++) {
-                        File.AppendAllText("S_ecr.txt", lines[currentLine] + "\n");
+                        string[] bytesRetournees = lines[currentLine].Split(',');
+                        if((byte)int.Parse(bytesRetournees[1]) == Constantes.N_CONNECT_IND)
+                            File.AppendAllText("S_ecr.txt", bytesRetournees[0]+ ": N_CONNECT_IND  " + DateTime.Now + "\n");
+                        else
+                        {
+                            if(int.Parse(bytesRetournees[4]) == 1)
+                                File.AppendAllText("S_ecr.txt", bytesRetournees[0] + ": N_DISCONNECT_IND; Le distant a rompu la connexion " + DateTime.Now + "\n");
+                            else
+                                File.AppendAllText("S_ecr.txt", bytesRetournees[0] + ": N_DISCONNECT_IND; La couche réseau a rompu la connexion " + DateTime.Now + "\n");
+                        }
+                        
+                        
                     }
                 }
 
@@ -237,9 +254,9 @@ namespace INF1009_TPSESSION {
                     run = false;
                     Console.WriteLine("ET a finit de lire et d'ecrire les retours");
                 }
-                //Attendre 1.5 sec avant de re-verifier le fichier txt
+                //Attendre 0.5 sec avant de re-verifier le fichier txt
                 else {
-                    Thread.Sleep(1500);
+                    Thread.Sleep(500);
                 }
 
             }

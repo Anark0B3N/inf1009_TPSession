@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 
 namespace INF1009_TPSESSION {
@@ -50,11 +51,14 @@ namespace INF1009_TPSESSION {
                     {
                         paquetRetour = liaisonDonnees(new PaquetAppel(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest()));
                     }
-                        break;
-
+                    if (paquetRetour != null)
+                        returnData(paquetRetour);
+                    break;                    
                 //Demande de deconnexion
                 case "FinDesDonnees":
                     paquetRetour = liaisonDonnees(new PaquetDemandeLiberation(connexionTransport.getNumeroConnexion(), connexionTransport.getSrc(), connexionTransport.getDest()));
+                    if (paquetRetour != null)
+                        returnData(paquetRetour);
                     etat = Constantes.DECONNECTE;
 
                     break;
@@ -65,6 +69,8 @@ namespace INF1009_TPSESSION {
                     if (task.Length <= 128) {
                         byte[] taskBytes = Encoding.ASCII.GetBytes(task);
                         paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x10, taskBytes));
+                        if (paquetRetour != null)
+                            returnData(paquetRetour);
                     }
                     else {
                         int noPaquet = 0;
@@ -88,14 +94,26 @@ namespace INF1009_TPSESSION {
                             noPaquet++;
 
                             paquetRetour = liaisonDonnees(paquetTemporaire);
+                            if (paquetRetour != null)
+                                returnData(paquetRetour);
                         }
                     }
                     //faire des paquets
                     break;
-
-
             }
         }
+
+        private void returnData (Paquet paquetRetour)
+        {
+            string paquetString = "";
+            foreach(byte b in paquetRetour.getPaquet()){
+                paquetString += (Convert.ToString(b) + ",");
+            }
+            Transport.ERs_TO_ET_File.WaitOne();
+            File.AppendAllText("R_ecr.txt", paquetString + "\n");
+            Transport.ERs_TO_ET_File.Release();
+        }
+
         private Paquet liaisonDonnees(Paquet paquetRecu)
         {
             int triesCount;
@@ -135,6 +153,7 @@ namespace INF1009_TPSESSION {
                 default:
                     triesCount = 0;
                     byte? retourData = tryWithTemp(receiveData, paquetRecu, ref triesCount);
+                    //if(retourData & 0x08 == 0)
                     break;
             }
             return null;
@@ -201,13 +220,10 @@ namespace INF1009_TPSESSION {
                 return null;
             }
             //Acquitement négatif
-            /*else if ((int)((paquetRecu.getType() >> 1) & 0x07) == rnd.Next(0, 7)) {
-                writeLog("paquet de données invalide reçu de " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
-                //
-                // Check this, not sure why I need to cast it as byte
-                //
-                return ((byte?)((paquetRecu.getType() & 0xF0) | 0x09));
-            }*/
+            else if ((int)((paquetRecu.getType() >> 1) & 0x07) == rnd.Next(0, 7)) {
+                writeLog("paquet de données invalide reçu de " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);             
+                return ((byte?)((paquetRecu.getType() & 0xE0) | 0x09));
+            }
 
             //Acquitement Positif
             else {
@@ -225,7 +241,7 @@ namespace INF1009_TPSESSION {
                 //Sinon paquet d'une suite
                 trameComplete += (Encoding.ASCII.GetString(paquetRecu.getPaquet(), 2, 128));
                 writeLog("Paquet de données reçu #" + (paquetRecu.getType() >> 5) + ". Prochain: #" + ((paquetRecu.getType() & 0x0E) >> 1) + ". source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
-
+                return (byte?)((paquetRecu.getType() & (0x0E << 4)) | 0x01);
 
                 //Old code..
                 /*                //S'il n'y a qu'une seule trame
