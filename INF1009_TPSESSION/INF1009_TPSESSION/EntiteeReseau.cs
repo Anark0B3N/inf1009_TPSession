@@ -22,7 +22,7 @@ namespace INF1009_TPSESSION {
 
         public void Execute() {
             etat = Constantes.EN_ATTENTE;
-
+            trameComplete = "";
             string cmd = connexionTransport.getNextCommand();
             while (cmd != null) {
                 if (etat == Constantes.DECONNECTE)
@@ -68,7 +68,7 @@ namespace INF1009_TPSESSION {
                     //TODO: gerer le cas ou la demande de connexion n'a pas eu lieu
                     if (task.Length <= 128) {
                         byte[] taskBytes = Encoding.ASCII.GetBytes(task);
-                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x10, taskBytes));
+                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x00, taskBytes));
                         if (paquetRetour != null)
                             returnData(paquetRetour);
                     }
@@ -186,7 +186,7 @@ namespace INF1009_TPSESSION {
 
         private byte? establishConnexion(Paquet paquetRecu)
         {
-            writeData("tentative de connexion Source: " + ((int)paquetRecu.getSrc()).ToString() + ", Destination: " + ((int)paquetRecu.getDest()).ToString() + "\t\t" + DateTime.Now);
+            //writeData("tentative de connexion Source: " + ((int)paquetRecu.getSrc()).ToString() + ", Destination: " + ((int)paquetRecu.getDest()).ToString() + "\t\t" + DateTime.Now);
             //Pas de réponse
             if ((int)paquetRecu.getSrc() % 19 == 0)
             {
@@ -233,7 +233,7 @@ namespace INF1009_TPSESSION {
                     //Fin de la trame
                     writeData(trameComplete);
                     trameComplete = "";
-
+                
                     writeLog("Paquet de données reçu #" + (paquetRecu.getType() >> 5) + ". Prochain: #" + ((paquetRecu.getType() & 0x0E) >> 1) + ". source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
                     return ((byte?)((paquetRecu.getType() & 0xE0) | 0x01));
                 }
