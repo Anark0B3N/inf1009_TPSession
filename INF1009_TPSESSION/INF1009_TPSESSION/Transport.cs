@@ -166,11 +166,6 @@ namespace INF1009_TPSESSION {
         //Creer une connexion au besoin et ajoute la ligne dans la file de la connexion
         private void processLigne(string ligne) {
 
-            /* Format d'une ligne:
-             * no_processus:type_de_pqt,data
-             */
-
-
             ConnexionTransport currentConn;
             Random rnd = new Random();
             string[] ligneSepare = ligne.Split(':');

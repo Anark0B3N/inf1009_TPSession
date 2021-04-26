@@ -32,9 +32,6 @@ namespace INF1009_TPSESSION {
             }
         }
 
-        //
-        //TODO return paquet to ET
-        //
         private void processTask(string task) {
             Paquet paquetRetour;
 
