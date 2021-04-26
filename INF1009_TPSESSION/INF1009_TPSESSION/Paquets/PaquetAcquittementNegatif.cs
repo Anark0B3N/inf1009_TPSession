@@ -1,14 +1,12 @@
-﻿using System;
+﻿using INF1009_TPSESSION.Paquets;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace INF1009_TPSESSION
 {
-    class PaquetAcquittementNegatif
+    class PaquetAcquittementNegatif : Paquet
     {
-        
-        private byte[] paquet;
-
         public PaquetAcquittementNegatif(byte numeroConnexion, byte pr)
         {
             paquet = new byte[2];

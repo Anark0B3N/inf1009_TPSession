@@ -65,11 +65,17 @@ namespace INF1009_TPSESSION {
 
                 //Data transfer
                 default:
-                    //TODO: gerer le cas ou la demande de connexion n'a pas eu lieu
+
                     if (task.Length <= 128) {
                         byte[] taskBytes = Encoding.ASCII.GetBytes(task);
-                        paquetRetour = liaisonDonnees(new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x00, taskBytes));
-                        if (paquetRetour != null)
+                        int triesCount = 0;
+                        paquetRetour = tryWithAcquittementNegatif(liaisonDonnees, new PaquetDonnees(connexionTransport.getNumeroConnexion(), 0x00, taskBytes), ref triesCount);
+                        if((paquetRetour.getType() & 0x09) == 0x09) {
+                            //2x aqcuittement negatif -> deconnexion
+                            etat = Constantes.DECONNECTE;
+                            return;
+                        }
+                        else if (paquetRetour != null && paquetRetour.getPaquet().Length > 2)
                             returnData(paquetRetour);
                     }
                     else {
@@ -93,9 +99,15 @@ namespace INF1009_TPSESSION {
 
                             noPaquet++;
 
-                            paquetRetour = liaisonDonnees(paquetTemporaire);
-                            if (paquetRetour != null)
-                                returnData(paquetRetour);
+                            int triescount = 0;
+                            paquetRetour = tryWithAcquittementNegatif(liaisonDonnees, paquetTemporaire, ref triescount);
+
+                            if ((paquetRetour.getType() & 0x09) == 0x09) {
+                                //2x aqcuittement negatif -> deconnexion
+                                etat = Constantes.DECONNECTE;
+                                return;
+                            }
+
                         }
                     }
                     //faire des paquets
@@ -127,18 +139,21 @@ namespace INF1009_TPSESSION {
                     //Si le distant à refusé la connexion
                     if (connexion == Constantes.N_DISCONNECT_IND) {
                         etat = Constantes.DECONNECTE;
+                        writeData("paquet d'indication liberation");
                         return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
                     }
 
                     //Si le distant a accepté la connexion 
                     else if (connexion == Constantes.N_CONNECT_IND) {
                         etat = Constantes.CONNECTE;
+                        writeData("paquet de connexion etablie");
                         return new PaquetConnexionEtablie(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest());
                     }
 
                     //Si le distant ne répond pas (connexion = null quand trop long, voir tryWithTemp)
                     else if (connexion == null) {
                         etat = Constantes.DECONNECTE;
+                        writeData("paquet d'indication liberation");
                         return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
                     }                    
                     break;
@@ -146,14 +161,24 @@ namespace INF1009_TPSESSION {
                 //Pour une demande de déconnexion 
                 case Constantes.N_DISCONNECT_REQ:
                     writeLog("Demande de déconnexion Source: " + paquetRecu.getSrc() + "\t\t" + DateTime.Now);
+                    writeData("paquet d'indication liberation");
                     return new PaquetIndicationLiberation(paquetRecu.getNoConn(), paquetRecu.getSrc(), paquetRecu.getDest(), 0x01);
                     break;
 
                 //Data
                 default:
-                    triesCount = 0;
-                    byte? retourData = tryWithTemp(receiveData, paquetRecu, ref triesCount);
-                    //if(retourData & 0x08 == 0)
+                    byte? retourData = receiveData(paquetRecu);
+
+                    if((retourData & 0x09) == 0x09) {
+                        //Aquittement negatif
+                        writeData("paquet d'aqcuittement negatif");
+                        return new PaquetAcquittementNegatif(paquetRecu.getNoConn(), (byte)(retourData >> 5));
+                    }else if((retourData & 0x09) == 0x01) {
+                        //Acquittement positif
+                        writeData("paquet d'aqcuittement positif");
+                        return new PaquetAcquittement(paquetRecu.getNoConn(), (byte)(retourData >> 5));
+                    }
+
                     break;
             }
             return null;
@@ -178,6 +203,25 @@ namespace INF1009_TPSESSION {
 
                 //Re-essayer
                 return tryWithTemp(funcToTry, paquetRecu, ref triesCount);
+            }
+            else {
+                return result;
+            }
+        }
+
+        /*Permet d'essayer une methode du type 'Paquet XYZ(Paquet)' avec un 
+         * nombre d'essaies max de 2. Retourne null si le nombre d'essai max est depasse*/
+        private Paquet tryWithAcquittementNegatif(Func<Paquet, Paquet> funcToTry, Paquet paquetRecu, ref int triesCount) {
+            //Appel de la function a tester
+            Paquet result = funcToTry(paquetRecu);
+
+            if((result.getType() & 0x09) == 0x09) {
+                triesCount++;
+                if (triesCount > 2)
+                    return null;
+
+                //Re-essayer
+                return tryWithAcquittementNegatif(funcToTry, paquetRecu, ref triesCount);
             }
             else {
                 return result;
